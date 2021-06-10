@@ -1,0 +1,4 @@
+skyeng_log:
+    appName: '%env(APP_NAME)%'
+    sentryDSN: '%env(SENTRY_DSN)%'
+    sentryRelease: '%env(SENTRY_RELEASE)%'

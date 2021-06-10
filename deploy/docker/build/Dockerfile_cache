@@ -1,0 +1,12 @@
+FROM registry.skyeng.tv/base/php7.3-buster:1.10.16 as cache
+
+ARG GITHUB_TOKEN
+
+WORKDIR /opt/app
+
+COPY --chown=www-data:www-data composer.json composer.lock ./
+
+RUN ( echo "{\"github-oauth\":{\"github.com\":\"$GITHUB_TOKEN\"}}" > /home/www-data/.composer/auth.json \
+        && composer install --optimize-autoloader --no-scripts \
+        && rm -rf /home/www-data/.composer/cache /home/www-data/.composer/auth.json \
+    )

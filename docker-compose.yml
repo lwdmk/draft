@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+  nginx:
+    environment:
+      CONTAINER_CONFIG: >
+        [
+          {
+            "source": "/etc/nginx/sites-templates/app-nginx.conf.erb",
+            "target": "/etc/nginx/sites-enabled/app-nginx.conf"
+          }
+        ]

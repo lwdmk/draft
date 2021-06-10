@@ -1,0 +1,8 @@
+.git/
+.github/
+Jenkinsfile
+JenkinsfileRollback
+deploy/docker
+var/log/*
+var/cache/*
+vendor

@@ -1,0 +1,6 @@
+ekino_new_relic:
+    enabled: false
+    application_name: "%env(APP_NAME)%"
+    api_key: "%env(NEWRELIC_TOKEN)%"
+    exceptions: true
+    deprecations: true

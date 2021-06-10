@@ -1,0 +1,76 @@
+---
+build:
+  docker:
+    image:
+      cache: registry.skyeng.tv/ddd/ddd-cache
+      php: registry.skyeng.tv/ddd/ddd-php
+      nginx: registry.skyeng.tv/ddd/ddd-nginx
+    commands:
+      cache: docker build --target cache --build-arg GITHUB_TOKEN -t ${cacheImage} -f deploy/docker/build/Dockerfile_cache .
+      php: docker build --target php -t ${phpImage} --build-arg CACHE_CHECKSUM=`bash deploy/docker/build/cache-files-checksum.sh` -f deploy/docker/build/Dockerfile .
+      nginx: docker build --target nginx -t ${nginxImage} --build-arg CACHE_CHECKSUM=`bash deploy/docker/build/cache-files-checksum.sh` -f deploy/docker/build/Dockerfile .
+    tags:
+      cache: bash deploy/docker/build/cache-files-checksum.sh
+      php: bash deploy/docker/build/project-files-checksum.sh
+      nginx: bash deploy/docker/build/project-files-checksum.sh
+
+x-base-env: &base-env
+  APP_NAME: ddd
+  FASTCGI_PASS: ddd_php-fpm:9000
+  SENTRY_RELEASE: ddd@${dockerImagesTag}
+
+deploy:
+  locations:
+    staging:
+      environment: &staging-env
+        secrets:
+          - type: usernamePassword
+            credentialsId: dev_db_all_common
+            passwordVariable: DATABASE_PASSWORD
+            usernameVariable: DATABASE_USER
+        envVars:
+          <<: *base-env
+          NGINX_SERVER_NAME: ddd.${hostFqdn}
+          DATABASE_HOST: { inherit: POSTGRES11_HOST }
+          DATABASE_PORT: { inherit: POSTGRES11_PORT }
+          DATABASE_NAME: ddd_auto_${hostShortName}
+          SENTRY_DSN: ~
+          NEWRELIC_TOKEN: ~
+      beforeDeploy: &before_deploy_commands
+        - docker run --rm --env-file=./.env ${phpImage} sh -c "bin/console doctrine:migrations:migrate --no-interaction"
+      notification:
+        message: |
+          Application index: https://ddd.${hostFqdn}
+
+    development-local:
+      base-environment: local-base
+      environment: *staging-env
+
+    production:
+      environment:
+        secrets:
+          - type: usernamePassword
+            credentialsId: FIX_ME
+            passwordVariable: DATABASE_PASSWORD
+            usernameVariable: DATABASE_USER
+          - type: string
+            credentialsId: service_api_all_newrelic
+            variable: NEWRELIC_TOKEN
+        envVars:
+          <<: *base-env
+          APP_ENV: prod
+          NGINX_SERVER_NAME: ddd.skyeng.ru
+          DATABASE_HOST: { inherit: FIX_ME_DATABASE_HOST }
+          DATABASE_PORT: { inherit: FIX_ME_DATABASE_PORT }
+          DATABASE_NAME: ddd
+          SENTRY_DSN: FIX_ME
+      beforeDeploy: *before_deploy_commands
+      notification:
+        message: |
+          Application index: https://ddd.skyeng.ru
+
+#test:
+#  skippable: false
+#  base-environment: staging-yandex-docker
+#  environment: *development-env
+#  command: docker run --rm --env-file=./.env ${phpImage} vendor/bin/phpunit

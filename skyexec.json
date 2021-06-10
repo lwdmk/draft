@@ -1,0 +1,28 @@
+{
+    "skyexec-version": "0.1.2",
+    "team": "ddd",
+    "project": "ddd",
+    "dev": {
+        "up-commands": [
+            "echo '===> Cleanup'",
+            "touch .env && dev-compose down --remove-orphans",
+            "echo '===> Build images'",
+            "dev-compose build",
+            "echo '===> Run php container'",
+            "dev-compose up -d php-fpm",
+            "echo '===> Composer install'",
+            "dev-compose exec -u www-data -T php-fpm php -d memory_limit=-1 /usr/bin/composer install -n",
+            "echo '===> Run migrations / setup services'",
+            "dev-compose exec -u www-data -T php-fpm bin/console doctrine:migrations:migrate --no-interaction",
+            "dev-compose exec -u www-data -T php-fpm bin/console assets:install --symlink",
+            "echo '===> Bring up the project'",
+            "dev-compose up -d"
+        ],
+        "features": {
+            "compose-env": {
+                "generated-env-file": ".env.local"
+            },
+            "debug-control": {}
+        }
+    }
+}

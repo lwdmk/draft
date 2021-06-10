@@ -1,0 +1,4 @@
+skyeng_newrelic:
+    enabled: true
+    appName: "%env(APP_NAME)%"
+    APIKey: "%env(NEWRELIC_TOKEN)%"

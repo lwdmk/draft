@@ -1,0 +1,198 @@
+version: "3.7"
+
+networks:
+  proxy:
+    external: true
+    name: ${SWARM_PROXY_NETWORK}
+  default: ~
+
+volumes:
+  logs:
+    external: true
+    name: logs
+  sock:
+    external: true
+    name: sock
+
+x-acl: &acl
+  io.portainer.accesscontrol.teams: InfraDevOps,InfraSRE,InfraSupport,InfrastructureCore
+
+services:
+  nginx:
+    image: registry.skyeng.tv/ddd/ddd-nginx:${IMAGE_TAG_nginx}
+    environment:
+      - NGINX_SERVER_NAME
+      - FASTCGI_PASS
+    networks:
+      - proxy
+      - default
+    volumes:
+      - logs:/opt/app/var/log
+    ports:
+      - FIXME:80
+    healthcheck:
+      test: ["CMD", "curl", "127.0.0.1/_/infra/nginx/healthcheck"]
+      interval: ${SWARM_SERVICE_HEALTHCHECK_INTERVAL}
+      timeout: ${SWARM_SERVICE_HEALTHCHECK_TIMEOUT}
+      start_period: ${SWARM_SERVICE_START_PERIOD}
+    labels:
+      <<: *acl
+    deploy:
+      labels:
+        com.df.notify: "true"
+        com.df.serviceDomain: "${NGINX_SERVER_NAME}"
+        com.df.srcPort: "${DF_HTTP_PORT}"
+        com.df.port: "80"
+      mode: replicated
+      replicas: ${SWARM_NGINX_REPLICAS}
+      placement: ${SWARM_SERVICE_PLACEMENT}
+      update_config:
+        parallelism: 0
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 0
+        failure_action: pause
+        order: start-first
+
+  php-fpm:
+    user: root
+    env_file:
+      - ./.env
+    command: php-fpm
+    image: registry.skyeng.tv/ddd/ddd-php:${IMAGE_TAG_php}
+    networks:
+      - default
+    volumes:
+      - logs:/opt/app/var/log
+      - sock:/var/run
+    healthcheck:
+      test: healthcheck --readiness='fcgi-request --script=public/index.php --uri=/_/infra/probe/ready --required-status=200' --liveness='fcgi-request --script=/opt/common/healthy.php --uri=/ --required-status=200'
+      interval: ${SWARM_SERVICE_HEALTHCHECK_INTERVAL}
+      timeout: ${SWARM_SERVICE_HEALTHCHECK_TIMEOUT}
+      start_period: ${SWARM_SERVICE_START_PERIOD}
+    labels:
+      <<: *acl
+    deploy:
+      mode: replicated
+      replicas: ${SWARM_PHPFPM_REPLICAS}
+      placement: ${SWARM_SERVICE_PLACEMENT}
+      update_config:
+        parallelism: 0
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 0
+        failure_action: pause
+        order: start-first
+
+  # cron:
+  #   user: root
+  #   env_file:
+  #   - ./.env
+  #   environment:
+  #     CONTAINER_CONFIG: >
+  #       [
+  #         {
+  #           "source": "/opt/app/deploy/templates/crontab.erb",
+  #           "target": "/tmp/crontab"
+  #         }
+  #       ]
+  #     CRON_CONFIG: /tmp/crontab
+  #   command: cron
+  #   image: registry.skyeng.tv/ddd/ddd-php:${IMAGE_TAG_php}
+  #   networks:
+  #   - default
+  #   volumes:
+  #   - logs:/opt/app/var/log
+  #   - sock:/var/run
+  #   healthcheck:
+  #     disable: true
+  #   labels:
+  #     <<: *acl
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 1
+  #     placement: ${SWARM_SERVICE_PLACEMENT}
+  #     update_config:
+  #       failure_action: rollback
+  #       order: stop-first
+  #     rollback_config:
+  #       failure_action: pause
+  #       order: stop-first
+
+  # supervisor:
+  #   user: root
+  #   env_file:
+  #   - ./.env
+  #   environment:
+  #     CONTAINER_CONFIG: >
+  #       [
+  #         {
+  #           "source": "${SUPERVISOR_CONFIG_TEMPLATE}",
+  #           "target": "/etc/supervisor.d/app.ini"
+  #         }
+  #       ]
+  #   command: supervisor
+  #   image: registry.skyeng.tv/ddd/ddd-php:${IMAGE_TAG_php}
+  #   networks:
+  #   - default
+  #   volumes:
+  #   - logs:/opt/app/var/log
+  #   - sock:/var/run
+  #   healthcheck:
+  #     disable: true
+  #   labels:
+  #     <<: *acl
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 1
+  #     placement: ${SWARM_SERVICE_PLACEMENT}
+  #     update_config:
+  #       failure_action: rollback
+  #       order: stop-first
+  #     rollback_config:
+  #       failure_action: pause
+  #       order: stop-first
+
+  # redis:
+  #   image: registry.skyeng.tv/redis5.0:0.0.2
+  #   networks:
+  #     - default
+  #   healthcheck:
+  #     disable: true
+  #   labels:
+  #     <<: *acl
+  #   deploy:
+  #     mode: replicated
+  #     replicas: ${SWARM_REDIS_REPLICAS}
+  #     placement: ${SWARM_SERVICE_PLACEMENT}
+  #     update_config:
+  #       parallelism: 0
+  #       failure_action: rollback
+  #       order: start-first
+  #     rollback_config:
+  #       parallelism: 0
+  #       failure_action: pause
+  #       order: start-first
+
+  # memcached:
+  #   image: registry.skyeng.tv/memcached1.5:0.0.1
+  #   networks:
+  #     - default
+  #   healthcheck:
+  #     disable: true
+  #   labels:
+  #     <<: *acl
+  #   deploy:
+  #     mode: replicated
+  #     replicas: ${SWARM_MEMCACHED_REPLICAS}
+  #     placement: ${SWARM_SERVICE_PLACEMENT}
+  #     update_config:
+  #       parallelism: 0
+  #       failure_action: rollback
+  #       order: start-first
+  #     rollback_config:
+  #       parallelism: 0
+  #       failure_action: pause
+  #       order: start-first

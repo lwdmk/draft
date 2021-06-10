@@ -1,0 +1,49 @@
+version: "3.7"
+
+networks:
+  default:
+    external:
+      name: infra_default
+
+volumes:
+  sock: {}
+
+services:
+  nginx:
+    image: registry.skyeng.tv/base/nginx1.17:1.6.13
+    environment:
+      NGINX_SERVER_NAME: ddd.skyeng.loc
+      FASTCGI_PASS: unix:/var/run/php7-fpm.sock
+    ports:
+      - FIXME:80
+    volumes:
+      - .:/opt/app:cached
+      - sock:/var/run
+      - ./deploy/templates/app-nginx.conf.erb:/etc/nginx/sites-templates/app-nginx.conf.erb
+    networks:
+      - default
+    depends_on:
+      - php-fpm
+    restart: unless-stopped
+
+  php-fpm:
+    image: registry.skyeng.tv/ddd/ddd-php:dev
+    user: root
+    build: &dev_image
+      dockerfile: deploy/docker/dev/php/Dockerfile_dev
+      context: .
+      args:
+        USER_ID: "${user_id}"
+        XDEBUG: "${debug}"
+        GITHUB_RSA: "${github_rsa}"
+        MACOS: "${is_macos}"
+        DEPLOYMENT: dev
+    volumes:
+      - .:/opt/app:cached
+      - sock:/var/run
+      - ./deploy/docker/dev/php/pool.conf:/usr/local/etc/php-fpm.d/zz-local.conf       # pool config
+      - /opt/skyeng/.composer_docker:/home/www-data/.composer:cached                   # composer cache
+    restart: unless-stopped
+    networks:
+      - default
+    command: php-fpm

@@ -1,0 +1,32 @@
+server {
+  server_name _;
+  listen 80;
+
+  set $root /opt/app;
+
+  include include/server_base.conf;
+  include include/server_restrict_locations.conf;
+
+  set_real_ip_from 10.255.0.0/16;
+  real_ip_header X-Real-IP;
+
+  location / {
+    root $root/public;
+    try_files $uri /index.php$is_args$args;
+  }
+
+  location ~ ^/index\.php(/|$) {
+    root $root/public;
+
+    set $php_upstream <%= ENV.fetch('FASTCGI_PASS') %>;
+    resolver 127.0.0.11 valid=30s;
+    fastcgi_pass $php_upstream;
+
+    fastcgi_split_path_info ^(.+\.php)(/.*)$;
+    include fastcgi_params;
+
+    fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+    internal;
+  }
+
+}
